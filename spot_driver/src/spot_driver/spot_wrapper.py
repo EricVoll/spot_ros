@@ -211,12 +211,16 @@ class AsyncIdle(AsyncPeriodicQuery):
             try:
                 feedback_resp = self._client.robot_command_feedback(self._spot_wrapper._last_arm_trajectory_command)
                 status = feedback_resp.feedback.synchronized_feedback.arm_command_feedback.arm_cartesian_feedback.status
+                
                 if status == arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_COMPLETE:
                     # reached the goal
                     self._spot_wrapper._arm_at_goal = True
                     self._spot_wrapper._last_arm_trajectory_command = None
-                else:
-                    self._spot_wrapper.last_arm_trajectory_command = None
+                elif status == arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_STALLED or \
+                    status == arm_command_pb2.ArmCartesianCommand.Feedback.STATUS_TRAJECTORY_CANCELLED:
+                    self._logger.error("Arm trajectory command failed")
+                    self._spot_wrapper._last_arm_trajectory_command = None
+
             except (ResponseError, RpcError) as e:
                 self._logger.error("Error when getting robot command feedback: %s", e)
                 self._spot_wrapper._last_arm_trajectory_command = None
@@ -665,48 +669,46 @@ class SpotWrapper():
             self._last_trajectory_command = response[2]
         return response[0], response[1]
 
-    def arm_trajectory_cmd(self, position, orientation, cmd_duration, frame_name='odom'):
+    def arm_trajectory_cmd(self, position, orientation, cmd_duration):
         self._arm_at_goal = False
         self._logger.info("got command duration of {}".format(cmd_duration))
         end_time = time.time() + cmd_duration
-        if frame_name == 'vision':
-            rotation = math_helpers.Quat(orientation.w, orientation.x, orientation.y, orientation.z)
 
-            t = cmd_duration
+        rotation = math_helpers.Quat(orientation.w, orientation.x, orientation.y, orientation.z)
 
-            hand_pose = math_helpers.SE3Pose(x=position.x, y=position.y, z=position.z, rot=rotation)
+        t = cmd_duration
 
-            traj_point = trajectory_pb2.SE3TrajectoryPoint(
-                pose=hand_pose.to_proto(), time_since_reference=seconds_to_duration(t))
-            
-            hand_traj = trajectory_pb2.SE3Trajectory(points=[traj_point])
+        hand_pose = math_helpers.SE3Pose(x=position.x, y=position.y, z=position.z, rot=rotation)
 
-            arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
-                pose_trajectory_in_task=hand_traj, root_frame_name=frame_helpers.BODY_FRAME_NAME)
+        traj_point = trajectory_pb2.SE3TrajectoryPoint(
+            pose=hand_pose.to_proto(), time_since_reference=seconds_to_duration(t))
+        
+        hand_traj = trajectory_pb2.SE3Trajectory(points=[traj_point])
 
-            arm_command = arm_command_pb2.ArmCommand.Request(
-                arm_cartesian_command=arm_cartesian_command)
+        arm_cartesian_command = arm_command_pb2.ArmCartesianCommand.Request(
+            pose_trajectory_in_task=hand_traj, root_frame_name=frame_helpers.BODY_FRAME_NAME)
 
-            synchronized_command = synchronized_command_pb2.SynchronizedCommand.Request(
-                arm_command=arm_command)
-            
-            robot_command = robot_command_pb2.RobotCommand(
-                synchronized_command=synchronized_command)
+        arm_command = arm_command_pb2.ArmCommand.Request(
+            arm_cartesian_command=arm_cartesian_command)
 
-            # keep gripper open during the command
-            robot_command = RobotCommandBuilder.claw_gripper_open_fraction_command(
-                1, build_on_command=robot_command)
-            
-            self._logger.info("Sending trajectory command...")
+        synchronized_command = synchronized_command_pb2.SynchronizedCommand.Request(
+            arm_command=arm_command)
+        
+        robot_command = robot_command_pb2.RobotCommand(
+            synchronized_command=synchronized_command)
 
-            success, success_str, id = self._robot_command(robot_command, end_time_secs=end_time)
+        # keep gripper open during the command
+        robot_command = RobotCommandBuilder.claw_gripper_open_fraction_command(
+            1, build_on_command=robot_command)
+        
+        self._logger.info("Sending trajectory command...")
 
-            if success:
-                self._last_arm_trajectory_command = id
-            return success, success_str
+        success, success_str, id = self._robot_command(robot_command, end_time_secs=end_time)
 
-        else:
-            raise ValueError("frame_name must be vision")
+        if success:
+            self._last_arm_trajectory_command = id
+
+        return success, success_str
 
     def list_graph(self, upload_path):
         """List waypoint ids of garph_nav

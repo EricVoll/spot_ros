@@ -422,14 +422,17 @@ class SpotROS():
 
     def handle_arm_trajectory(self, req):
         """ROS actionserver execution handler to handle receiving a request to move the arm to a location"""
+        
         if req.target_pose.header.frame_id != 'body':
             self.arm_trajectory_server.set_aborted(TrajectoryResult(False, 'frame_id of target_pose must be \'body\''))
             return
+            
         if req.duration.data.to_sec() <= 0:
             self.arm_trajectory_server.set_aborted(TrajectoryResult(False, 'duration must be larger than 0'))
             return
-
+            
         cmd_duration = rospy.Duration(req.duration.data.secs, req.duration.data.nsecs)
+        
         resp = self.spot_wrapper.arm_trajectory_cmd(
             req.target_pose.pose.position,
             req.target_pose.pose.orientation,
