@@ -185,11 +185,19 @@ class SpotROS():
             image_msg3, camera_info_msg3 = getImageMsg(data[3], self.spot_wrapper)
             self.frontright_depth_pub.publish(image_msg3)
             self.frontright_depth_info_pub.publish(camera_info_msg3)
+            image_msg4, camera_info_msg4 = getImageMsg(data[4], self.spot_wrapper)
+            self.frontleft_depth_in_visual_pub.publish(image_msg4)
+            self.frontleft_depth_in_visual_info_pub.publish(camera_info_msg4)
+            image_msg5, camera_info_msg5 = getImageMsg(data[5], self.spot_wrapper)
+            self.frontright_depth_in_visual_pub.publish(image_msg5)
+            self.frontright_depth_in_visual_info_pub.publish(camera_info_msg5)
 
             self.populate_camera_static_transforms(data[0])
             self.populate_camera_static_transforms(data[1])
             self.populate_camera_static_transforms(data[2])
             self.populate_camera_static_transforms(data[3])
+            self.populate_camera_static_transforms(data[4])
+            self.populate_camera_static_transforms(data[5])
 
     def SideImageCB(self, results):
         """Callback for when the Spot Wrapper gets new side image data.
@@ -252,10 +260,14 @@ class SpotROS():
             image_msg2, camera_info_msg2 = getImageMsg(data[2], self.spot_wrapper)
             self.hand_image_color_pub.publish(image_msg2)
             self.hand_image_color_info_pub.publish(camera_info_msg2)
+            image_msg3, camera_info_msg3 = getImageMsg(data[3], self.spot_wrapper)
+            self.hand_depth_in_hand_color_pub.publish(image_msg3)
+            self.hand_depth_in_color_info_pub.publish(camera_info_msg3)
 
             self.populate_camera_static_transforms(data[0])
             self.populate_camera_static_transforms(data[1])
             self.populate_camera_static_transforms(data[2])
+            self.populate_camera_static_transforms(data[3])
 
 
     def handle_claim(self, req):
@@ -611,6 +623,10 @@ class SpotROS():
             self.left_depth_pub = rospy.Publisher('depth/left/image', Image, queue_size=10)
             self.right_depth_pub = rospy.Publisher('depth/right/image', Image, queue_size=10)
             self.hand_depth_pub = rospy.Publisher('depth/hand/image', Image, queue_size=10)
+            self.hand_depth_in_hand_color_pub = rospy.Publisher('depth/hand/depth_in_color', Image, queue_size=10)
+            self.frontleft_depth_in_visual_pub = rospy.Publisher('depth/frontleft/depth_in_visual', Image, queue_size=10)
+            self.frontright_depth_in_visual_pub = rospy.Publisher('depth/frontright/depth_in_visual', Image, queue_size=10)
+            
             # Image Camera Info #
             self.back_image_info_pub = rospy.Publisher('camera/back/camera_info', CameraInfo, queue_size=10)
             self.frontleft_image_info_pub = rospy.Publisher('camera/frontleft/camera_info', CameraInfo, queue_size=10)
@@ -627,6 +643,10 @@ class SpotROS():
             self.left_depth_info_pub = rospy.Publisher('depth/left/camera_info', CameraInfo, queue_size=10)
             self.right_depth_info_pub = rospy.Publisher('depth/right/camera_info', CameraInfo, queue_size=10)
             self.hand_depth_info_pub = rospy.Publisher('depth/hand/camera_info', CameraInfo, queue_size=10)
+            self.hand_depth_in_color_info_pub = rospy.Publisher('depth/hand/depth_in_color/camera_info', CameraInfo, queue_size=10)
+            self.frontleft_depth_in_visual_info_pub = rospy.Publisher('depth/frontleft/depth_in_visual/camera_info', CameraInfo, queue_size=10)
+            self.frontright_depth_in_visual_info_pub = rospy.Publisher('depth/frontright/depth_in_visual/camera_info', CameraInfo, queue_size=10)
+            
             # Status Publishers #
             self.joint_state_pub = rospy.Publisher('joint_states', JointState, queue_size=10)
             """Defining a TF publisher manually because of conflicts between Python3 and tf"""
